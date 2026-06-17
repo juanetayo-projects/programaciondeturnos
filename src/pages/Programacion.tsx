@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import type { Cargo, CatalogoSigla, Colaborador, ReglaColor, Servicio } from '../lib/types'
@@ -36,11 +37,13 @@ export default function Programacion() {
   const [reglas, setReglas] = useState<ReglaColor[]>([])
   const [festivos, setFestivos] = useState<Set<string>>(new Set())
 
+  const [sp] = useSearchParams()
   const hoy = new Date()
-  const [anio, setAnio] = useState(hoy.getFullYear())
-  const [mes, setMes] = useState(hoy.getMonth() + 1)
-  const [servicioId, setServicioId] = useState('')
-  const [cargoId, setCargoId] = useState('')
+  const [anio, setAnio] = useState(Number(sp.get('anio')) || hoy.getFullYear())
+  const [mes, setMes] = useState(Number(sp.get('mes')) || hoy.getMonth() + 1)
+  const [servicioId, setServicioId] = useState(sp.get('servicio') ?? '')
+  const [cargoId, setCargoId] = useState(sp.get('cargo') ?? '')
+  const autoRef = useRef(false)
 
   const [progId, setProgId] = useState<string | null>(null)
   const [colabs, setColabs] = useState<Colaborador[]>([])
@@ -54,15 +57,25 @@ export default function Programacion() {
   useEffect(() => {
     supabase.from('servicios').select('*').eq('activo', true).order('nombre').then(r => {
       const s = (r.data as Servicio[]) ?? []; setServicios(s)
-      setServicioId(esCoord && perfil?.servicio_id ? perfil.servicio_id : s[0]?.id ?? '')
+      setServicioId(prev => prev || (esCoord && perfil?.servicio_id ? perfil.servicio_id : s[0]?.id ?? ''))
     })
     supabase.from('cargos').select('*').eq('activo', true).order('nombre').then(r => {
-      const c = (r.data as Cargo[]) ?? []; setCargos(c); setCargoId(c[0]?.id ?? '')
+      const c = (r.data as Cargo[]) ?? []; setCargos(c); setCargoId(prev => prev || (c[0]?.id ?? ''))
     })
     supabase.from('catalogo_siglas').select('*').eq('activo', true).order('orden').then(r => setSiglas((r.data as CatalogoSigla[]) ?? []))
     supabase.from('reglas_color').select('*').then(r => setReglas((r.data as ReglaColor[]) ?? []))
     supabase.from('festivos_colombia').select('fecha').then(r => setFestivos(new Set((r.data ?? []).map((x: { fecha: string }) => x.fecha))))
   }, [])
+
+  // Auto-cargar si se llegó con parámetros (p. ej. desde Liquidación)
+  useEffect(() => {
+    if (autoRef.current) return
+    if (sp.get('servicio') && servicioId && cargoId && servicios.length && cargos.length) {
+      autoRef.current = true
+      cargar()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servicios, cargos, servicioId, cargoId])
 
   const siglaMap = useMemo(() => {
     const m = new Map<string, CatalogoSigla>(); siglas.forEach(s => m.set(s.id, s)); return m
@@ -120,6 +133,7 @@ export default function Programacion() {
       s.dias.forEach(d => encabezado.push({ v: `${d.letra}${d.dia}`, bold: true, bg: d.esFes ? FES_HEX : HDR_HEX, fg: d.esFes ? FES_FG : HDR_FG }))
       encabezado.push({ v: `HS S${s.indice + 1}`, bold: true, bg: HDR_HEX, fg: HDR_FG })
     })
+    encabezado.push({ v: 'Total', bold: true, bg: HDR_HEX, fg: HDR_FG })
     const filas: Celda[][] = colabs.map(c => {
       const row: Celda[] = [{ v: c.nombre_completo, bold: true }]
       semanas.forEach(s => {
@@ -130,11 +144,13 @@ export default function Programacion() {
         const h = horasSemana(c.id, s); const col = colorHoras(h, reglas)
         row.push({ v: h, bold: true, bg: col?.bg, fg: col?.fg })
       })
+      row.push({ v: semanas.reduce((t, s) => t + horasSemana(c.id, s), 0), bold: true, bg: HDR_HEX, fg: HDR_FG })
       return row
     })
     CONTADORES.forEach(({ cat, label }) => {
       const row: Celda[] = [{ v: label, bold: true, bg: HDR_HEX, fg: HDR_FG }]
       semanas.forEach(s => { s.dias.forEach(d => row.push({ v: contar(d.fecha, cat) || '' })); row.push({ v: '', bg: HDR_HEX }) })
+      row.push({ v: '', bg: HDR_HEX })
       filas.push(row)
     })
     const servN = servicios.find(s => s.id === servicioId)?.nombre ?? ''
@@ -200,6 +216,7 @@ export default function Programacion() {
                 {semanas.map(s => (
                   <th key={s.indice} colSpan={s.dias.length} className="bg-brand text-white border border-white/20 px-1 py-1">Semana {s.indice + 1}</th>
                 )).reduce<JSX.Element[]>((acc, el, i) => { acc.push(el); acc.push(<th key={`hs${i}`} rowSpan={3} className="bg-brand-dark text-white px-1 border border-white/20">HS</th>); return acc }, [])}
+                <th rowSpan={3} className="bg-brand-dark text-white px-2 border border-white/20">Total</th>
               </tr>
               <tr>
                 {semanas.flatMap(s => s.dias.map(d => (
@@ -246,6 +263,7 @@ export default function Programacion() {
                         style={col ? { backgroundColor: col.bg, color: col.fg } : undefined}>{h}</td>
                     ) })(),
                   ])}
+                  <td className="border px-2 text-center font-bold text-brand bg-brand-50">{semanas.reduce((t, s) => t + horasSemana(c.id, s), 0)}</td>
                 </tr>
               ))}
             </tbody>
@@ -257,6 +275,7 @@ export default function Programacion() {
                     ...s.dias.map(d => <td key={d.fecha} className="border px-1 text-center text-gray-700">{contar(d.fecha, cat) || ''}</td>),
                     <td key={`hs${s.indice}`} className="border bg-gray-100"></td>,
                   ])}
+                  <td className="border bg-gray-100"></td>
                 </tr>
               ))}
             </tfoot>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { festivosColombia } from '../../lib/festivosColombia'
 import { Btn, PageHeader, selectCls } from '../../components/ui'
 
 interface Festivo { fecha: string; nombre: string }
@@ -19,6 +20,11 @@ export default function Festivos() {
     setFecha(''); setNombre(''); cargar()
   }
   const del = async (f: string) => { await supabase.from('festivos_colombia').delete().eq('fecha', f); cargar() }
+  const generar = async () => {
+    if (!confirm(`¿Generar/actualizar automáticamente los festivos de Colombia para ${anio}?`)) return
+    await supabase.from('festivos_colombia').upsert(festivosColombia(anio))
+    cargar()
+  }
 
   const filtrada = lista.filter(f => f.fecha.startsWith(String(anio)))
   const anios = Array.from(new Set(lista.map(f => f.fecha.slice(0, 4)))).concat([String(anio)])
@@ -39,11 +45,14 @@ export default function Festivos() {
           <Btn onClick={add}>Agregar / Actualizar</Btn>
         </div>
         <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-black/5 md:col-span-2">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
             <h3 className="font-semibold text-brand">Calendario</h3>
-            <select className={selectCls} value={anio} onChange={e => setAnio(Number(e.target.value))}>
-              {aniosUnq.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
+            <div className="flex items-center gap-2">
+              <select className={selectCls} value={anio} onChange={e => setAnio(Number(e.target.value))}>
+                {Array.from(new Set([...aniosUnq, ...Array.from({ length: 6 }, (_, i) => String(new Date().getFullYear() + i))])).sort().map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <Btn onClick={generar}>⟳ Generar {anio}</Btn>
+            </div>
           </div>
           <ul className="divide-y divide-gray-100">
             {filtrada.map(f => (

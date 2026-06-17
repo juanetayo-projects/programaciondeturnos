@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import type { Cargo, Colaborador, Servicio } from '../lib/types'
@@ -20,6 +22,8 @@ export default function Colaboradores() {
   const [form, setForm] = useState<Form | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [importMsg, setImportMsg] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   async function cargar() {
     const { data } = await supabase.from('colaboradores').select('*').order('nombre_completo')
@@ -72,10 +76,66 @@ export default function Colaboradores() {
     cargar()
   }
 
+  async function descargarPlantilla() {
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('Colaboradores')
+    ws.columns = [
+      { header: 'Nombre Completo', key: 'n', width: 34 },
+      { header: 'Numero Documento', key: 'd', width: 18 },
+      { header: 'Email', key: 'e', width: 30 },
+      { header: 'Telefono', key: 't', width: 16 },
+      { header: 'Servicio', key: 's', width: 20 },
+      { header: 'Cargo', key: 'c', width: 22 },
+    ]
+    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D2D6B' } }
+    ws.addRow(['JUAN PEREZ EJEMPLO', '12345678', 'juan.perez@correo.co', '3001234567', servicios[0]?.nombre ?? 'UCI UCIN', cargos[0]?.nombre ?? 'Auxiliar de Enfermería'])
+    const listas = wb.addWorksheet('Valores válidos')
+    listas.addRow(['Servicios', 'Cargos'])
+    const maxL = Math.max(servicios.length, cargos.length)
+    for (let i = 0; i < maxL; i++) listas.addRow([servicios[i]?.nombre ?? '', cargos[i]?.nombre ?? ''])
+    listas.getRow(1).font = { bold: true }
+    const buf = await wb.xlsx.writeBuffer()
+    saveAs(new Blob([buf]), 'Plantilla_Colaboradores.xlsx')
+  }
+
+  async function importar(file: File) {
+    setImportMsg('Procesando…')
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(await file.arrayBuffer())
+    const ws = wb.worksheets[0]
+    const servByName = new Map(servicios.map(s => [s.nombre.trim().toLowerCase(), s.id]))
+    const cargoByName = new Map(cargos.map(c => [c.nombre.trim().toLowerCase(), c.id]))
+    const filas: Record<string, unknown>[] = []
+    const errores: string[] = []
+    ws.eachRow((row, n) => {
+      if (n === 1) return // encabezado
+      const val = (i: number) => String(row.getCell(i).text ?? '').trim()
+      const nombre = val(1), doc = val(2)
+      if (!nombre && !doc) return
+      const sId = servByName.get(val(5).toLowerCase()), cId = cargoByName.get(val(6).toLowerCase())
+      if (!sId) { errores.push(`Fila ${n}: servicio "${val(5)}" no existe`); return }
+      if (!cId) { errores.push(`Fila ${n}: cargo "${val(6)}" no existe`); return }
+      filas.push({ nombre_completo: nombre, numero_documento: doc, email: val(3) || null, telefono: val(4) || null, servicio_id: sId, cargo_id: cId })
+    })
+    if (filas.length === 0) { setImportMsg('No se encontraron filas válidas. ' + errores.join('; ')); return }
+    const { error, count } = await supabase.from('colaboradores').upsert(filas, { onConflict: 'numero_documento', count: 'exact' })
+    if (error) { setImportMsg('Error: ' + error.message); return }
+    setImportMsg(`Importados/actualizados: ${count ?? filas.length}.` + (errores.length ? ` Omitidos: ${errores.length} (${errores.slice(0, 3).join('; ')}${errores.length > 3 ? '…' : ''})` : ''))
+    cargar()
+  }
+
   return (
     <div>
       <PageHeader title="Colaboradores" subtitle="Gestión del personal por servicio"
-        action={<Btn onClick={nuevo}>+ Nuevo colaborador</Btn>} />
+        action={<div className="flex gap-2">
+          <Btn variant="ghost" onClick={descargarPlantilla}>⬇ Plantilla</Btn>
+          <Btn variant="ghost" onClick={() => fileRef.current?.click()}>⬆ Importar</Btn>
+          <Btn onClick={nuevo}>+ Nuevo colaborador</Btn>
+        </div>} />
+      <input ref={fileRef} type="file" accept=".xlsx" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) importar(f); e.target.value = '' }} />
+      {importMsg && <p className="mb-3 text-sm text-brand">{importMsg}</p>}
 
       <div className="flex flex-wrap gap-2 mb-3">
         <input placeholder="Buscar nombre o documento…" value={buscar} onChange={e => setBuscar(e.target.value)}
@@ -150,7 +210,7 @@ export default function Colaboradores() {
                 <input type="date" value={form.fecha_ingreso ?? ''} onChange={e => setForm({ ...form, fecha_ingreso: e.target.value })} className={inp} />
               </Campo>
               <Campo label="Servicio">
-                <select required value={form.servicio_id ?? ''} onChange={e => setForm({ ...form, servicio_id: e.target.value })} className={inp} disabled={!esAdmin}>
+                <select required value={form.servicio_id ?? ''} onChange={e => setForm({ ...form, servicio_id: e.target.value })} className={inp}>
                   <option value="" disabled>Seleccione…</option>
                   {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                 </select>

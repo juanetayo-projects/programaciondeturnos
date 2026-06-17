@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import type { Cargo, Servicio } from '../lib/types'
@@ -17,6 +18,7 @@ interface Fila {
 
 export default function Recargos() {
   const { perfil } = useAuth()
+  const navigate = useNavigate()
   const puedeEditar = perfil?.rol === 'nomina' || perfil?.rol === 'admin'
 
   const [servicios, setServicios] = useState<Servicio[]>([])
@@ -150,6 +152,9 @@ export default function Recargos() {
         </select>
         <Btn onClick={calcular} disabled={cargando}>{cargando ? 'Calculando…' : 'Calcular'}</Btn>
         {filas.length > 0 && puedeEditar && <Btn variant="ghost" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar liquidación'}</Btn>}
+        {servicioId && cargoId && (
+          <Btn variant="ghost" onClick={() => navigate(`/programacion?servicio=${servicioId}&cargo=${cargoId}&anio=${anio}&mes=${mes}`)}>👁 Ver programación</Btn>
+        )}
       </FilterBar>
 
       {msg && <p className={`mb-3 text-sm ${msg.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>{msg}</p>}

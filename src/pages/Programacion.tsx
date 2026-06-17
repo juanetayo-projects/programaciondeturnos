@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import type { Cargo, CatalogoSigla, Colaborador, ReglaColor, Servicio } from '../lib/types'
 import { semanasDelMes, type SemanaCal } from '../lib/calendario'
 import { colorHoras } from '../lib/colorRules'
+import { exportarExcel, exportarPDF, type Celda, type Matriz } from '../lib/exportar'
 import { Btn, FilterBar, PageHeader, selectCls } from '../components/ui'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -11,6 +12,10 @@ const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto'
 const CAT_TINT: Record<string, string> = {
   dia: 'bg-sky-50', manana: 'bg-amber-50', tarde: 'bg-orange-50', noche: 'bg-indigo-50', noche8: 'bg-violet-50',
 }
+const CAT_HEX: Record<string, string> = {
+  dia: '#E0F2FE', manana: '#FEF3C7', tarde: '#FFEDD5', noche: '#E0E7FF', noche8: '#EDE9FE',
+}
+const HDR_HEX = '#EAF0FA', HDR_FG = '#0D2D6B', FES_HEX = '#FEE2E2', FES_FG = '#B91C1C', AUS_HEX = '#F3F4F6'
 const CONTADORES: { cat: CatalogoSigla['categoria_capacidad']; label: string }[] = [
   { cat: 'dia', label: 'Total personal día' },
   { cat: 'manana', label: 'Total personal mañana (M8)' },
@@ -107,6 +112,35 @@ export default function Programacion() {
 
   const totalDias = semanas.reduce((t, s) => t + s.dias.length, 0)
 
+  function construirMatriz(): Matriz {
+    const encabezado: Celda[] = [{ v: 'Colaborador', bold: true, bg: HDR_HEX, fg: HDR_FG }]
+    semanas.forEach(s => {
+      s.dias.forEach(d => encabezado.push({ v: `${d.letra}${d.dia}`, bold: true, bg: d.esFes ? FES_HEX : HDR_HEX, fg: d.esFes ? FES_FG : HDR_FG }))
+      encabezado.push({ v: `HS S${s.indice + 1}`, bold: true, bg: HDR_HEX, fg: HDR_FG })
+    })
+    const filas: Celda[][] = colabs.map(c => {
+      const row: Celda[] = [{ v: c.nombre_completo, bold: true }]
+      semanas.forEach(s => {
+        s.dias.forEach(d => {
+          const sig = siglaMap.get(asig.get(`${c.id}|${d.fecha}`) ?? '')
+          row.push({ v: sig?.sigla ?? '', bg: sig?.es_ausencia ? AUS_HEX : sig?.categoria_capacidad ? CAT_HEX[sig.categoria_capacidad] : undefined })
+        })
+        const h = horasSemana(c.id, s); const col = colorHoras(h, reglas)
+        row.push({ v: h, bold: true, bg: col?.bg, fg: col?.fg })
+      })
+      return row
+    })
+    CONTADORES.forEach(({ cat, label }) => {
+      const row: Celda[] = [{ v: label, bold: true, bg: HDR_HEX, fg: HDR_FG }]
+      semanas.forEach(s => { s.dias.forEach(d => row.push({ v: contar(d.fecha, cat) || '' })); row.push({ v: '', bg: HDR_HEX }) })
+      filas.push(row)
+    })
+    const servN = servicios.find(s => s.id === servicioId)?.nombre ?? ''
+    const cargoN = cargos.find(c => c.id === cargoId)?.nombre ?? ''
+    return { titulo: 'Cuadro de Turnos', sub: `${servN} · ${cargoN} · ${MESES[mes - 1]} ${anio}`, encabezado, filas }
+  }
+  const nombreArchivo = `Turnos_${(servicios.find(s => s.id === servicioId)?.nombre ?? '').replace(/\s+/g, '')}_${MESES[mes - 1]}${anio}`
+
   return (
     <div>
       <PageHeader title="Programación de turnos"
@@ -139,6 +173,11 @@ export default function Programacion() {
           No hay colaboradores activos para este servicio y cargo.
         </div>
       ) : (
+        <>
+        <div className="mb-3 flex justify-end gap-2">
+          <Btn variant="ghost" onClick={() => exportarExcel(construirMatriz(), nombreArchivo)}>⬇ Excel</Btn>
+          <Btn variant="ghost" onClick={() => exportarPDF(construirMatriz(), nombreArchivo)}>⬇ PDF</Btn>
+        </div>
         <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-black/5">
           <table className="border-collapse text-xs">
             <thead>
@@ -209,6 +248,7 @@ export default function Programacion() {
             </tfoot>
           </table>
         </div>
+        </>
       )}
 
       {progId && colabs.length > 0 && (

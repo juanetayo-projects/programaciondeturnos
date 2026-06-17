@@ -6,7 +6,12 @@ import Dashboard from './pages/Dashboard'
 import Colaboradores from './pages/Colaboradores'
 import Programacion from './pages/Programacion'
 import Recargos from './pages/Recargos'
-import EnConstruccion from './pages/EnConstruccion'
+import Siglas from './pages/admin/Siglas'
+import Colores from './pages/admin/Colores'
+import Convenciones from './pages/admin/Convenciones'
+import ServiciosCargos from './pages/admin/ServiciosCargos'
+import Festivos from './pages/admin/Festivos'
+// (EnConstruccion ya no se usa: todos los módulos están implementados)
 
 function Protegido({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
@@ -26,11 +31,11 @@ export default function App() {
               <Route path="colaboradores" element={<Colaboradores />} />
               <Route path="programacion" element={<Programacion />} />
               <Route path="recargos" element={<Recargos />} />
-              <Route path="siglas" element={<EnConstruccion titulo="Catálogo de siglas" />} />
-              <Route path="colores" element={<EnConstruccion titulo="Reglas de color" />} />
-              <Route path="convenciones" element={<EnConstruccion titulo="Convenciones de recargo" />} />
-              <Route path="servicios" element={<EnConstruccion titulo="Servicios y cargos" />} />
-              <Route path="festivos" element={<EnConstruccion titulo="Festivos" />} />
+              <Route path="siglas" element={<Siglas />} />
+              <Route path="colores" element={<Colores />} />
+              <Route path="convenciones" element={<Convenciones />} />
+              <Route path="servicios" element={<ServiciosCargos />} />
+              <Route path="festivos" element={<Festivos />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

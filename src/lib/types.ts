@@ -36,6 +36,19 @@ export interface CatalogoSigla {
   orden: number
 }
 
+export interface Liquidacion {
+  id?: string
+  anio: number
+  mes: number
+  colaborador_id: string
+  hdo: number
+  hno: number
+  hdf: number
+  hnf: number
+  total: number
+  ajustada: boolean
+}
+
 export interface ReglaColor {
   id: string
   nombre: string

@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Colaboradores from './pages/Colaboradores'
 import Programacion from './pages/Programacion'
+import Recargos from './pages/Recargos'
 import EnConstruccion from './pages/EnConstruccion'
 
 function Protegido({ children }: { children: React.ReactNode }) {
@@ -24,7 +25,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="colaboradores" element={<Colaboradores />} />
               <Route path="programacion" element={<Programacion />} />
-              <Route path="recargos" element={<EnConstruccion titulo="Liquidación de recargos" />} />
+              <Route path="recargos" element={<Recargos />} />
               <Route path="siglas" element={<EnConstruccion titulo="Catálogo de siglas" />} />
               <Route path="colores" element={<EnConstruccion titulo="Reglas de color" />} />
               <Route path="convenciones" element={<EnConstruccion titulo="Convenciones de recargo" />} />

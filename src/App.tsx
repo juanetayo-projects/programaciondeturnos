@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Colaboradores from './pages/Colaboradores'
+import Programacion from './pages/Programacion'
 import EnConstruccion from './pages/EnConstruccion'
 
 function Protegido({ children }: { children: React.ReactNode }) {
@@ -22,7 +23,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="colaboradores" element={<Colaboradores />} />
-              <Route path="programacion" element={<EnConstruccion titulo="Programación de turnos" />} />
+              <Route path="programacion" element={<Programacion />} />
               <Route path="recargos" element={<EnConstruccion titulo="Liquidación de recargos" />} />
               <Route path="siglas" element={<EnConstruccion titulo="Catálogo de siglas" />} />
               <Route path="colores" element={<EnConstruccion titulo="Reglas de color" />} />

@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Colaboradores from './pages/Colaboradores'
 import Programacion from './pages/Programacion'
 import Recargos from './pages/Recargos'
+import Usuarios from './pages/admin/Usuarios'
 import Siglas from './pages/admin/Siglas'
 import Colores from './pages/admin/Colores'
 import Convenciones from './pages/admin/Convenciones'
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="colaboradores" element={<Colaboradores />} />
               <Route path="programacion" element={<Programacion />} />
               <Route path="recargos" element={<Recargos />} />
+              <Route path="usuarios" element={<Usuarios />} />
               <Route path="siglas" element={<Siglas />} />
               <Route path="colores" element={<Colores />} />
               <Route path="convenciones" element={<Convenciones />} />

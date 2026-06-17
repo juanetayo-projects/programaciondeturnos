@@ -48,6 +48,7 @@ export default function Programacion() {
   const [editando, setEditando] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [enviando, setEnviando] = useState(false)
 
   useEffect(() => {
     supabase.from('servicios').select('*').eq('activo', true).order('nombre').then(r => {
@@ -141,6 +142,17 @@ export default function Programacion() {
   }
   const nombreArchivo = `Turnos_${(servicios.find(s => s.id === servicioId)?.nombre ?? '').replace(/\s+/g, '')}_${MESES[mes - 1]}${anio}`
 
+  async function enviarCorreos() {
+    if (!progId) return
+    if (!confirm('¿Enviar la programación por correo a todos los colaboradores con email registrado?')) return
+    setEnviando(true); setMsg(null)
+    const { data, error } = await supabase.functions.invoke('enviar-programacion', { body: { programacionId: progId } })
+    setEnviando(false)
+    if (error) { setMsg('Error al enviar: ' + error.message); return }
+    const d = data as { enviados: number; sinCorreo: string[]; total: number }
+    setMsg(`Correos enviados: ${d.enviados} de ${d.total}.` + (d.sinCorreo?.length ? ` Sin correo: ${d.sinCorreo.join(', ')}.` : ''))
+  }
+
   return (
     <div>
       <PageHeader title="Programación de turnos"
@@ -177,6 +189,7 @@ export default function Programacion() {
         <div className="mb-3 flex justify-end gap-2">
           <Btn variant="ghost" onClick={() => exportarExcel(construirMatriz(), nombreArchivo)}>⬇ Excel</Btn>
           <Btn variant="ghost" onClick={() => exportarPDF(construirMatriz(), nombreArchivo)}>⬇ PDF</Btn>
+          {!soloLectura && <Btn onClick={enviarCorreos} disabled={enviando}>{enviando ? 'Enviando…' : '✉ Enviar a colaboradores'}</Btn>}
         </div>
         <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-black/5">
           <table className="border-collapse text-xs">

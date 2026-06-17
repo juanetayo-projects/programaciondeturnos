@@ -6,6 +6,7 @@ import { semanasDelMes, type SemanaCal } from '../lib/calendario'
 import { colorHoras } from '../lib/colorRules'
 import { exportarExcel, exportarPDF, type Celda, type Matriz } from '../lib/exportar'
 import { Btn, FilterBar, PageHeader, selectCls } from '../components/ui'
+import HeatmapCapacidad from '../components/HeatmapCapacidad'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -260,6 +261,9 @@ export default function Programacion() {
               ))}
             </tfoot>
           </table>
+        </div>
+        <div className="mt-5">
+          <HeatmapCapacidad dias={semanas.flatMap(s => s.dias)} contar={contar} />
         </div>
         </>
       )}

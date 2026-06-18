@@ -43,9 +43,9 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex">
       <aside className="w-60 bg-brand text-white flex flex-col">
-        <div className="flex items-center gap-2 px-4 py-4 border-b border-white/10">
-          <img src={LOGO} alt="Clínica" className="h-8 w-auto" />
-          <span className="text-sm font-semibold leading-tight">Programación<br />de Turnos</span>
+        <div className="flex flex-col items-center gap-2 px-4 py-5 border-b border-white/10 text-center">
+          <img src={LOGO} alt="Clínica" className="h-12 w-auto" />
+          <span className="text-base font-semibold leading-tight">Programación de Turnos</span>
         </div>
         <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">
           {top.map(i => (

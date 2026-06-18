@@ -69,7 +69,7 @@ export default function Convenciones() {
           <h3 className="font-semibold text-brand mb-3">Tabla de conversión (horas)</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-brand-50 text-brand text-left"><tr><th className="px-2 py-2">Código</th><th className="px-2 py-2">Día sig.</th><th className="px-2 py-2 text-right">HDO</th><th className="px-2 py-2 text-right">HNO</th><th className="px-2 py-2 text-right">HDF</th><th className="px-2 py-2 text-right">HNF</th></tr></thead>
+              <thead className="bg-brand-50 text-brand text-left"><tr><th className="px-2 py-2">Código</th><th className="px-2 py-2">Día sig.</th><th className="px-2 py-2 text-right">HDO</th><th className="px-2 py-2 text-right">HNO</th><th className="px-2 py-2 text-right">HDF</th><th className="px-2 py-2 text-right">HNF</th><th className="px-2 py-2 text-right">Total</th></tr></thead>
               <tbody>
                 {convs.map(c => (
                   <tr key={c.id} className="border-t border-gray-100">
@@ -79,6 +79,7 @@ export default function Convenciones() {
                     <td className="px-2 py-1.5 text-right">{c.hno}</td>
                     <td className="px-2 py-1.5 text-right">{c.hdf}</td>
                     <td className="px-2 py-1.5 text-right">{c.hnf}</td>
+                    <td className="px-2 py-1.5 text-right font-bold text-brand">{c.hdo + c.hno + c.hdf + c.hnf}</td>
                   </tr>
                 ))}
               </tbody>

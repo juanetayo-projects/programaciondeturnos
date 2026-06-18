@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import VistaProgramacion from '../components/VistaProgramacion'
 import { useAuth } from '../auth/AuthProvider'
 import type { Cargo, Servicio } from '../lib/types'
 import { indexarConvenciones, recargoMensual, type AsignacionInput, type ConvencionRecargo } from '../lib/recargos'
@@ -18,8 +18,8 @@ interface Fila {
 
 export default function Recargos() {
   const { perfil } = useAuth()
-  const navigate = useNavigate()
   const puedeEditar = perfil?.rol === 'nomina' || perfil?.rol === 'admin'
+  const [verGrid, setVerGrid] = useState(false)
 
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [cargos, setCargos] = useState<Cargo[]>([])
@@ -153,7 +153,7 @@ export default function Recargos() {
         <Btn onClick={calcular} disabled={cargando}>{cargando ? 'Calculando…' : 'Calcular'}</Btn>
         {filas.length > 0 && puedeEditar && <Btn variant="ghost" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar liquidación'}</Btn>}
         {servicioId && cargoId && (
-          <Btn variant="ghost" onClick={() => navigate(`/programacion?servicio=${servicioId}&cargo=${cargoId}&anio=${anio}&mes=${mes}`)}>👁 Ver programación</Btn>
+          <Btn variant="ghost" onClick={() => setVerGrid(v => !v)}>{verGrid ? '▲ Ocultar programación' : '👁 Ver programación'}</Btn>
         )}
       </FilterBar>
 
@@ -206,6 +206,13 @@ export default function Recargos() {
 
       {filas.length > 0 && (
         <p className="mt-2 text-xs text-gray-400">Los valores en ámbar fueron ajustados respecto al cálculo automático.</p>
+      )}
+
+      {verGrid && servicioId && cargoId && (
+        <div className="mt-6">
+          <h3 className="mb-2 text-sm font-semibold text-brand">Hoja de programación — {servicios.find(s => s.id === servicioId)?.nombre} · {cargos.find(c => c.id === cargoId)?.nombre} · {MESES[mes - 1]} {anio}</h3>
+          <VistaProgramacion servicioId={servicioId} cargoId={cargoId} anio={anio} mes={mes} />
+        </div>
       )}
     </div>
   )

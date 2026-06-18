@@ -53,6 +53,8 @@ export default function Programacion() {
   const [cargando, setCargando] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [nuevoColab, setNuevoColab] = useState<{ nombre_completo: string; numero_documento: string; email: string; telefono: string } | null>(null)
+  const [colabMsg, setColabMsg] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.from('servicios').select('*').eq('activo', true).order('nombre').then(r => {
@@ -170,6 +172,26 @@ export default function Programacion() {
     setMsg(`Correos enviados: ${d.enviados} de ${d.total}.` + (d.sinCorreo?.length ? ` Sin correo: ${d.sinCorreo.join(', ')}.` : ''))
   }
 
+  async function agregarColaborador(e: React.FormEvent) {
+    e.preventDefault(); if (!nuevoColab) return
+    setColabMsg(null)
+    const { error } = await supabase.from('colaboradores').insert({
+      nombre_completo: nuevoColab.nombre_completo.trim(),
+      numero_documento: nuevoColab.numero_documento.trim(),
+      email: nuevoColab.email.trim() || null,
+      telefono: nuevoColab.telefono.trim() || null,
+      servicio_id: servicioId, cargo_id: cargoId, activo: true,
+    })
+    if (error) { setColabMsg(error.message.includes('duplicate') ? 'Ya existe un colaborador con ese documento.' : error.message); return }
+    setNuevoColab(null); cargar()
+  }
+
+  async function quitarColaborador(c: Colaborador) {
+    if (!confirm(`¿Quitar a ${c.nombre_completo} de la parrilla? Se desactivará (conserva su histórico).`)) return
+    await supabase.from('colaboradores').update({ activo: false }).eq('id', c.id)
+    cargar()
+  }
+
   return (
     <div>
       <PageHeader title="Programación de turnos"
@@ -203,7 +225,8 @@ export default function Programacion() {
         </div>
       ) : (
         <>
-        <div className="mb-3 flex justify-end gap-2">
+        <div className="mb-3 flex justify-end gap-2 flex-wrap">
+          {!soloLectura && <Btn variant="ghost" onClick={() => { setColabMsg(null); setNuevoColab({ nombre_completo: '', numero_documento: '', email: '', telefono: '' }) }}>+ Agregar colaborador</Btn>}
           <Btn variant="ghost" onClick={() => exportarExcel(construirMatriz(), nombreArchivo)}>⬇ Excel</Btn>
           <Btn variant="ghost" onClick={() => exportarPDF(construirMatriz(), nombreArchivo)}>⬇ PDF</Btn>
           {!soloLectura && <Btn onClick={enviarCorreos} disabled={enviando}>{enviando ? 'Enviando…' : '✉ Enviar a colaboradores'}</Btn>}
@@ -233,7 +256,12 @@ export default function Programacion() {
             <tbody>
               {colabs.map(c => (
                 <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="sticky left-0 z-10 bg-white border px-3 py-1 font-medium text-gray-700 whitespace-nowrap">{c.nombre_completo}</td>
+                  <td className="sticky left-0 z-10 bg-white border px-3 py-1 font-medium text-gray-700 whitespace-nowrap">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{c.nombre_completo}</span>
+                      {!soloLectura && <button onClick={() => quitarColaborador(c)} title="Quitar de la parrilla" className="text-red-400 hover:text-red-600">✕</button>}
+                    </div>
+                  </td>
                   {semanas.map(s => [
                     ...s.dias.map(d => {
                       const key = `${c.id}|${d.fecha}`
@@ -289,6 +317,30 @@ export default function Programacion() {
 
       {progId && colabs.length > 0 && (
         <p className="mt-2 text-xs text-gray-400">{colabs.length} colaboradores · {totalDias} días · los cambios se guardan automáticamente.</p>
+      )}
+
+      {nuevoColab && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-20" onClick={() => setNuevoColab(null)}>
+          <form onClick={e => e.stopPropagation()} onSubmit={agregarColaborador} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-3">
+            <h2 className="text-lg font-semibold text-brand">Agregar colaborador a la parrilla</h2>
+            <p className="text-xs text-gray-500">Se asigna al servicio y cargo seleccionados y aparece en el cuadro.</p>
+            <label className="block"><span className="text-xs text-gray-600">Nombre completo</span>
+              <input required value={nuevoColab.nombre_completo} onChange={e => setNuevoColab({ ...nuevoColab, nombre_completo: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-light" /></label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block"><span className="text-xs text-gray-600">Documento</span>
+                <input required value={nuevoColab.numero_documento} onChange={e => setNuevoColab({ ...nuevoColab, numero_documento: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-light" /></label>
+              <label className="block"><span className="text-xs text-gray-600">Teléfono</span>
+                <input value={nuevoColab.telefono} onChange={e => setNuevoColab({ ...nuevoColab, telefono: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-light" /></label>
+            </div>
+            <label className="block"><span className="text-xs text-gray-600">Correo</span>
+              <input type="email" value={nuevoColab.email} onChange={e => setNuevoColab({ ...nuevoColab, email: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-light" /></label>
+            {colabMsg && <p className="text-sm text-red-600">{colabMsg}</p>}
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={() => setNuevoColab(null)}>Cancelar</Btn>
+              <Btn type="submit">Agregar</Btn>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   )

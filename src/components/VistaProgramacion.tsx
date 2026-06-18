@@ -12,8 +12,9 @@ const CONTADORES: { cat: CatalogoSigla['categoria_capacidad']; label: string }[]
 ]
 
 // Vista de SOLO LECTURA de la programación de un servicio/cargo/mes.
-export default function VistaProgramacion({ servicioId, cargoId, anio, mes }:
-  { servicioId: string; cargoId: string; anio: number; mes: number }) {
+// Si se pasa `colaboradorId`, muestra solo a ese colaborador (sin contadores).
+export default function VistaProgramacion({ servicioId, cargoId, anio, mes, colaboradorId }:
+  { servicioId: string; cargoId: string; anio: number; mes: number; colaboradorId?: string }) {
   const [colabs, setColabs] = useState<Colaborador[]>([])
   const [asig, setAsig] = useState<Map<string, string>>(new Map())
   const [siglas, setSiglas] = useState<CatalogoSigla[]>([])
@@ -35,8 +36,10 @@ export default function VistaProgramacion({ servicioId, cargoId, anio, mes }:
       setFestivos(new Set((fes ?? []).map((f: { fecha: string }) => f.fecha)))
       if (!prog) { setVacio(true); setColabs([]); setAsig(new Map()); setCargando(false); return }
       const pid = (prog as { id: string }).id
+      let cq = supabase.from('colaboradores').select('*').eq('servicio_id', servicioId).eq('cargo_id', cargoId).order('nombre_completo')
+      cq = colaboradorId ? cq.eq('id', colaboradorId) : cq.eq('activo', true)
       const [{ data: cs }, { data: as }] = await Promise.all([
-        supabase.from('colaboradores').select('*').eq('servicio_id', servicioId).eq('cargo_id', cargoId).eq('activo', true).order('nombre_completo'),
+        cq,
         supabase.from('asignaciones').select('colaborador_id,fecha,sigla_id').eq('programacion_id', pid),
       ])
       if (!activo) return
@@ -48,7 +51,7 @@ export default function VistaProgramacion({ servicioId, cargoId, anio, mes }:
     }
     load()
     return () => { activo = false }
-  }, [servicioId, cargoId, anio, mes])
+  }, [servicioId, cargoId, anio, mes, colaboradorId])
 
   const siglaMap = useMemo(() => { const m = new Map<string, CatalogoSigla>(); siglas.forEach(s => m.set(s.id, s)); return m }, [siglas])
   const semanas = useMemo(() => semanasDelMes(anio, mes, festivos), [anio, mes, festivos])
@@ -85,7 +88,7 @@ export default function VistaProgramacion({ servicioId, cargoId, anio, mes }:
           ))}
         </tbody>
         <tfoot>
-          {CONTADORES.map(({ cat, label }) => (
+          {!colaboradorId && CONTADORES.map(({ cat, label }) => (
             <tr key={cat} className="bg-gray-50">
               <td className="sticky left-0 z-10 bg-gray-100 border px-3 py-1 font-semibold text-brand whitespace-nowrap">{label}</td>
               {semanas.flatMap(s => s.dias.map(d => <td key={d.fecha} className="border px-1 text-center text-gray-700">{contar(d.fecha, cat) || ''}</td>))}

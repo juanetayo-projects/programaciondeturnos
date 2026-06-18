@@ -12,6 +12,8 @@ interface Fila {
   colaboradorId: string
   nombre: string
   servicio: string
+  servicio_id: string
+  cargo_id: string
   hdo: number; hno: number; hdf: number; hnf: number
   cHdo: number; cHno: number; cHdf: number; cHnf: number // calculados
 }
@@ -20,6 +22,7 @@ export default function Recargos() {
   const { perfil } = useAuth()
   const puedeEditar = perfil?.rol === 'nomina' || perfil?.rol === 'admin'
   const [verGrid, setVerGrid] = useState(false)
+  const [detalle, setDetalle] = useState<Fila | null>(null)
 
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [cargos, setCargos] = useState<Cargo[]>([])
@@ -65,13 +68,13 @@ export default function Recargos() {
     // 3. asignaciones + colaboradores + servicios + liquidaciones existentes
     const [{ data: asigs }, { data: colabs }, { data: servs }, { data: liqs }] = await Promise.all([
       supabase.from('asignaciones').select('colaborador_id,fecha,sigla_id').in('programacion_id', progIds),
-      supabase.from('colaboradores').select('id,nombre_completo,servicio_id'),
+      supabase.from('colaboradores').select('id,nombre_completo,servicio_id,cargo_id'),
       supabase.from('servicios').select('id,nombre'),
       supabase.from('liquidaciones_recargo').select('*').eq('anio', anio).eq('mes', mes),
     ])
     const servName = new Map<string, string>((servs ?? []).map((s: { id: string; nombre: string }) => [s.id, s.nombre]))
-    const colMap = new Map<string, { nombre: string; servicio_id: string }>(
-      (colabs ?? []).map((c: { id: string; nombre_completo: string; servicio_id: string }) => [c.id, { nombre: c.nombre_completo, servicio_id: c.servicio_id }]))
+    const colMap = new Map<string, { nombre: string; servicio_id: string; cargo_id: string }>(
+      (colabs ?? []).map((c: { id: string; nombre_completo: string; servicio_id: string; cargo_id: string }) => [c.id, { nombre: c.nombre_completo, servicio_id: c.servicio_id, cargo_id: c.cargo_id }]))
     const liqMap = new Map<string, { hdo: number; hno: number; hdf: number; hnf: number; ajustada: boolean }>(
       (liqs ?? []).map((l: { colaborador_id: string; hdo: number; hno: number; hdf: number; hnf: number; ajustada: boolean }) =>
         [l.colaborador_id, l]))
@@ -93,6 +96,8 @@ export default function Recargos() {
         colaboradorId: colId,
         nombre: info?.nombre ?? colId,
         servicio: servName.get(info?.servicio_id ?? '') ?? '—',
+        servicio_id: info?.servicio_id ?? '',
+        cargo_id: info?.cargo_id ?? '',
         cHdo: r.hdo, cHno: r.hno, cHdf: r.hdf, cHnf: r.hnf,
         hdo: liq?.hdo ?? r.hdo, hno: liq?.hno ?? r.hno, hdf: liq?.hdf ?? r.hdf, hnf: liq?.hnf ?? r.hnf,
       })
@@ -180,7 +185,12 @@ export default function Recargos() {
             <tbody>
               {filas.map(f => (
                 <tr key={f.colaboradorId} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-3 py-1.5 font-medium text-gray-700">{f.nombre}</td>
+                  <td className="px-3 py-1.5">
+                    <button onClick={() => setDetalle(f)} title="Ver programación del colaborador"
+                      className="font-medium text-brand-light hover:text-brand hover:underline text-left">
+                      {f.nombre}
+                    </button>
+                  </td>
                   <td className="px-3 py-1.5 text-gray-500">{f.servicio}</td>
                   <td className="px-3 py-1.5 text-right"><Num f={f} campo="hdo" /></td>
                   <td className="px-3 py-1.5 text-right"><Num f={f} campo="hno" /></td>
@@ -212,6 +222,26 @@ export default function Recargos() {
         <div className="mt-6">
           <h3 className="mb-2 text-sm font-semibold text-brand">Hoja de programación — {servicios.find(s => s.id === servicioId)?.nombre} · {cargos.find(c => c.id === cargoId)?.nombre} · {MESES[mes - 1]} {anio}</h3>
           <VistaProgramacion servicioId={servicioId} cargoId={cargoId} anio={anio} mes={mes} />
+        </div>
+      )}
+
+      {detalle && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-20" onClick={() => setDetalle(null)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-5xl max-h-[88vh] overflow-auto rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h2 className="text-lg font-semibold text-brand">{detalle.nombre}</h2>
+                <p className="text-xs text-gray-500">{detalle.servicio} · {MESES[mes - 1]} {anio} · Programación realizada por el coordinador</p>
+              </div>
+              <button onClick={() => setDetalle(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+            </div>
+            <VistaProgramacion servicioId={detalle.servicio_id} cargoId={detalle.cargo_id} anio={anio} mes={mes} colaboradorId={detalle.colaboradorId} />
+            <div className="mt-4 rounded-lg bg-brand-50 p-3 text-sm">
+              <span className="font-semibold text-brand">Recargos del mes:</span>{' '}
+              HDO {detalle.hdo} · HNO {detalle.hno} · HDF {detalle.hdf} · HNF {detalle.hnf} ·{' '}
+              <b>Total {detalle.hdo + detalle.hno + detalle.hdf + detalle.hnf}</b>
+            </div>
+          </div>
         </div>
       )}
     </div>

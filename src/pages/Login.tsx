@@ -40,10 +40,10 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand via-brand to-brand-light p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-        {/* Header azul */}
-        <div className="bg-brand px-8 py-7 text-center text-white">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#061536] to-[#0A2356] p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-white/10">
+        {/* Header azul (más brillante que el fondo para contrastar) */}
+        <div className="bg-gradient-to-br from-brand to-brand-light px-8 py-7 text-center text-white">
           <img src={LOGO} alt="Clínica Santa Bárbara" className="mx-auto h-14 w-auto" />
           <h1 className="mt-3 text-2xl font-bold">Programación de Turnos</h1>
           <p className="mt-1 text-sm text-brand-100">Clínica de Alta Complejidad Santa Bárbara</p>

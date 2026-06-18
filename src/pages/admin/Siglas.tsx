@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { CatalogoSigla } from '../../lib/types'
+import { exportarExcelSimple, leerFilas } from '../../lib/excelIO'
 import { Btn, PageHeader } from '../../components/ui'
 
 type Form = Partial<CatalogoSigla>
@@ -11,12 +12,45 @@ const CATS = [
 ]
 const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-light'
 
+const CAT_VALIDAS = ['dia', 'manana', 'tarde', 'noche', 'noche8']
+const esSi = (v: string) => ['si', 'sí', 'x', 'true', '1', 'verdadero'].includes(v.trim().toLowerCase())
+
 export default function Siglas() {
   const [lista, setLista] = useState<CatalogoSigla[]>([])
   const [form, setForm] = useState<Form | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const cargar = () => supabase.from('catalogo_siglas').select('*').order('orden').then(r => setLista((r.data as CatalogoSigla[]) ?? []))
   useEffect(() => { cargar() }, [])
+
+  function exportar() {
+    const headers = ['Sigla', 'Descripcion', 'Horas', 'Categoria (dia/manana/tarde/noche/noche8)', 'Es ausencia (Si/No)', 'Activo (Si/No)', 'Orden']
+    const filas = lista.map(s => [s.sigla, s.descripcion, s.horas, s.categoria_capacidad ?? '', s.es_ausencia ? 'Si' : 'No', s.activo ? 'Si' : 'No', s.orden])
+    exportarExcelSimple('Catalogo_Siglas.xlsx', 'Siglas', headers, filas, [12, 44, 8, 32, 16, 14, 8])
+  }
+
+  async function importar(file: File) {
+    setMsg('Procesando…')
+    const filas = await leerFilas(file)
+    const payload: Record<string, unknown>[] = []
+    const errores: string[] = []
+    filas.slice(1).forEach((r, i) => {
+      const sigla = (r[0] ?? '').trim()
+      if (!sigla) return
+      const cat = (r[3] ?? '').trim().toLowerCase()
+      if (cat && !CAT_VALIDAS.includes(cat)) { errores.push(`Fila ${i + 2}: categoría "${r[3]}" inválida`); return }
+      payload.push({
+        sigla, descripcion: (r[1] ?? '').trim() || sigla, horas: Number(r[2]) || 0,
+        categoria_capacidad: cat || null, es_ausencia: esSi(r[4] ?? ''),
+        activo: r[5] != null && r[5] !== '' ? esSi(r[5]) : true, orden: Number(r[6]) || 0,
+      })
+    })
+    if (payload.length === 0) { setMsg('Sin filas válidas. ' + errores.join('; ')); return }
+    const { error, count } = await supabase.from('catalogo_siglas').upsert(payload, { onConflict: 'sigla', count: 'exact' })
+    setMsg(error ? 'Error: ' + error.message : `Siglas importadas/actualizadas: ${count ?? payload.length}.` + (errores.length ? ` Omitidas: ${errores.length}` : ''))
+    cargar()
+  }
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault(); if (!form) return
@@ -33,7 +67,14 @@ export default function Siglas() {
   return (
     <div>
       <PageHeader title="Catálogo de siglas" subtitle="Códigos de turno, horas y categoría de capacidad"
-        action={<Btn onClick={() => setForm({ horas: 0, activo: true, es_ausencia: false, orden: (lista[lista.length - 1]?.orden ?? 0) + 10 })}>+ Nueva sigla</Btn>} />
+        action={<div className="flex gap-2">
+          <Btn variant="ghost" onClick={exportar}>⬇ Exportar</Btn>
+          <Btn variant="ghost" onClick={() => fileRef.current?.click()}>⬆ Importar</Btn>
+          <Btn onClick={() => setForm({ horas: 0, activo: true, es_ausencia: false, orden: (lista[lista.length - 1]?.orden ?? 0) + 10 })}>+ Nueva sigla</Btn>
+        </div>} />
+      <input ref={fileRef} type="file" accept=".xlsx" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) importar(f); e.target.value = '' }} />
+      {msg && <p className="mb-3 text-sm text-brand">{msg}</p>}
 
       <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-black/5">
         <table className="w-full text-sm">
